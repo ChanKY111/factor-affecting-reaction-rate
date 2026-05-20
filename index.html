@@ -100,7 +100,7 @@
 
     .tabs {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
       background: #e2e8f0;
       border-radius: 22px;
@@ -358,10 +358,9 @@
 
     <nav class="tabs">
       <button class="tab-btn active" data-tab="student">1. Student Data</button>
-      <button class="tab-btn" data-tab="predict">2. Predict</button>
+      <button class="tab-btn" data-tab="summary">2. Summary</button>
       <button class="tab-btn" data-tab="charts">3. Graphs</button>
-      <button class="tab-btn" data-tab="summary">4. Summary</button>
-      <button class="tab-btn" data-tab="tests">Tests</button>
+      <button class="tab-btn" data-tab="predict">4. Predict</button>
     </nav>
 
     <section id="tab-student" class="tab-panel card">
@@ -577,23 +576,6 @@
       </div>
     </section>
 
-    <section id="tab-tests" class="tab-panel card hidden">
-      <h2>Built-in calculation tests</h2>
-      <p style="color:#64748b;">These checks confirm that averages, rates, interpolation, numeric conversion and dynamic updates work correctly.</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Test</th>
-              <th>Expected</th>
-              <th>Actual</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="testsTableBody"></tbody>
-        </table>
-      </div>
-    </section>
   </div>
 
   <script>
@@ -1084,89 +1066,11 @@
       `;
     }
 
-    function renderTests() {
-      const beforeCount = buildSummary(getAllRows()).length;
-      const sampleRows = [
-        ...labTechRows,
-        {
-          source: "Student",
-          group: "Group 8",
-          independentVariable: "Concentration",
-          test: "Concentration",
-          surface: "Powder",
-          concentration: 1.5,
-          temperature: 25,
-          time: 5,
-          trial: 1,
-        }
-      ];
-      const afterCount = buildSummary(sampleRows).length;
-
-      const tests = [
-        {
-          name: "Mean of powder surface-area data should be 13 s",
-          actual: mean([13, 13, 13, 13, 13]),
-          expected: 13
-        },
-        {
-          name: "Rate for 13 s should be 60 / 13",
-          actual: rateFromTime(13),
-          expected: 60 / 13
-        },
-        {
-          name: "Invalid time should produce zero rate",
-          actual: rateFromTime("abc"),
-          expected: 0
-        },
-        {
-          name: "String numbers should be converted safely",
-          actual: mean(["10", "20", "30"]),
-          expected: 20
-        },
-        {
-          name: "Interpolation at known point should return exact value",
-          actual: interpolate([{ x: 0, y: 1 }, { x: 10, y: 3 }], 5),
-          expected: 2
-        },
-        {
-          name: "Summary should contain positive repeats for lab data",
-          actual: buildSummary(labTechRows).every(row => row.repeats > 0),
-          expected: true
-        },
-        {
-          name: "Dynamic summary should accept added student data",
-          actual: afterCount >= beforeCount,
-          expected: true
-        },
-        {
-          name: "Student data should be included in allRows",
-          actual: getAllRows().length,
-          expected: labTechRows.length + studentRows.length
-        }
-      ];
-
-      document.getElementById("testsTableBody").innerHTML = tests.map(test => {
-        const passed = typeof test.expected === "boolean"
-          ? test.actual === test.expected
-          : Math.abs(Number(test.actual) - Number(test.expected)) < 0.000001;
-
-        return `
-          <tr>
-            <td>${escapeHtml(test.name)}</td>
-            <td>${String(test.expected)}</td>
-            <td>${String(test.actual)}</td>
-            <td class="status ${passed ? "passed" : "failed"}">${passed ? "Passed" : "Failed"}</td>
-          </tr>
-        `;
-      }).join("");
-    }
-
     function renderAll() {
       renderStudentTable();
       renderSummaryTable();
       renderPrediction();
       renderCharts();
-      renderTests();
     }
 
     function updatePredictionSliderLabels() {
