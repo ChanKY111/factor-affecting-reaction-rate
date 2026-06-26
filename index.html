@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reaction Rate Prediction Model</title>
+  <title>Reaction Rate Prediction Model - Improved Log-linear Version</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -345,13 +345,14 @@
           <div class="badge">🧪 CaCO₃ + HCl Rate Investigation</div>
           <h1>Reaction Rate Prediction Model</h1>
           <p style="margin:0; max-width:760px; color:#475569; font-size:16px;">
-            Students first add their own group results. The model then dynamically combines student data with lab tech data to update the graphs and prediction.
+            Students first add their own group results. The model then dynamically combines student data with lab tech data to update the graphs and prediction using a more predictive log-linear model.
           </p>
         </div>
         <div class="muted-card" style="min-width:260px;">
           <strong>Fixed fair-test conditions</strong>
           <p style="margin:6px 0 0;">0.5 g CaCO₃ · 20 mL HCl · collect 60 mL CO₂</p>
           <p style="margin:6px 0 0; color:#64748b; font-size:13px;">Rate = 60 ÷ average time / cm³ s⁻¹</p>
+          <p style="margin:6px 0 0; color:#64748b; font-size:13px;">If time = 0 s, rate is undefined.</p>
         </div>
       </div>
     </header>
@@ -377,7 +378,7 @@
       <div class="muted-card note-blue" style="margin-top:18px;">
         <strong>Dynamic model behaviour</strong>
         <p style="margin:6px 0 0;">
-          Student data are included in the combined dataset. The summary table, graphs and prediction model update immediately after each entry.
+          Student data are included in the combined dataset. The summary table, graphs and prediction model update immediately after each entry. The prediction model learns from all valid conditions, not only from one graph at a time.
         </p>
       </div>
 
@@ -460,6 +461,15 @@
             <option value="school">School realistic range</option>
             <option value="extreme">Extreme extrapolation range</option>
           </select>
+        </div>
+
+        <div class="muted-card note-blue" style="margin-bottom:16px;">
+          <strong>Improved prediction model</strong>
+          <p style="margin:6px 0 0;">
+            The model now uses all valid data to learn this relationship:
+            <br><strong>ln(rate) = a + b(surface area) + c(temperature) + d ln(concentration)</strong>
+            <br>This gives stronger predictive behaviour when temperature or concentration is changed, while still warning students when the input is outside the tested range.
+          </p>
         </div>
 
         <div class="two-col">
@@ -571,7 +581,7 @@
       <div class="muted-card" style="margin-top:16px;">
         <strong>Model note for students</strong>
         <p style="margin:6px 0 0; color:#475569;">
-          This is an empirical prediction model based on measured data. Predictions within the measured range are more reliable. Predictions at very high temperature or very high acid concentration are extrapolations and should not be treated as safe laboratory instructions.
+          This is an empirical log-linear prediction model based on measured data. It learns the effects of surface area, temperature and concentration together. Predictions within the measured range are more reliable. Predictions at very high temperature or very high acid concentration are extrapolations and should not be treated as safe laboratory instructions.
         </p>
       </div>
     </section>
@@ -635,14 +645,35 @@
 
     function rateFromTime(time) {
       const numericTime = Number(time);
-      if (!Number.isFinite(numericTime) || numericTime <= 0) return 0;
+
+      // Rate = volume / time.
+      // If time is 0 s, the rate is mathematically undefined because division by zero is not allowed.
+      // In the experiment, 0 s is also physically invalid because CO₂ collection takes measurable time.
+      if (!Number.isFinite(numericTime) || numericTime <= 0) return null;
+
       return GAS_VOLUME_CM3 / numericTime;
     }
 
     function round(value, decimalPlaces = 2) {
+      if (value === null || value === undefined) return "—";
       const numericValue = Number(value);
       if (!Number.isFinite(numericValue)) return "—";
       return numericValue.toFixed(decimalPlaces);
+    }
+
+    function formatRate(value, decimalPlaces = 2) {
+      if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+        return "Undefined";
+      }
+      return round(value, decimalPlaces);
+    }
+
+    function formatTime(value, decimalPlaces = 1) {
+      if (value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) <= 0) {
+        return "—";
+      }
+      if (Number(value) < 0.1) return "<0.1";
+      return round(value, decimalPlaces);
     }
 
     function groupBy(rows, keyFn) {
@@ -690,6 +721,7 @@
     }
 
     function positiveOrMinimum(value, minimum = 0.02) {
+      if (value === null || value === undefined) return minimum;
       const numericValue = Number(value);
       if (!Number.isFinite(numericValue)) return minimum;
       return Math.max(minimum, numericValue);
@@ -718,7 +750,7 @@
           repeats: times.length,
           averageTime,
           sdTime: standardDeviation(times),
-          rate: rateFromTime(averageTime),
+          rate: averageTime > 0 ? rateFromTime(averageTime) : null,
         };
       }).sort((a, b) =>
         a.test.localeCompare(b.test) ||
@@ -728,63 +760,207 @@
       );
     }
 
+    function uniqueConditionSummary(rows) {
+      const grouped = groupBy(rows, row => [row.surface, row.concentration, row.temperature].join("|"));
+
+      return Object.entries(grouped).map(([key, groupedRows]) => {
+        const [surface, concentration, temperature] = key.split("|");
+        const times = groupedRows.map(row => toNumber(row.time)).filter(time => time > 0);
+        const averageTime = mean(times);
+        return {
+          surface,
+          concentration: toNumber(concentration),
+          temperature: toNumber(temperature),
+          repeats: times.length,
+          averageTime,
+          rate: rateFromTime(averageTime),
+        };
+      }).filter(row =>
+        row.rate > 0 &&
+        row.concentration > 0 &&
+        Number.isFinite(row.temperature)
+      );
+    }
+
+    function solveLinearSystem(matrix, vector) {
+      const n = vector.length;
+      const augmented = matrix.map((row, i) => [...row, vector[i]]);
+
+      for (let col = 0; col < n; col++) {
+        let pivotRow = col;
+        for (let row = col + 1; row < n; row++) {
+          if (Math.abs(augmented[row][col]) > Math.abs(augmented[pivotRow][col])) {
+            pivotRow = row;
+          }
+        }
+
+        if (Math.abs(augmented[pivotRow][col]) < 1e-10) return null;
+
+        [augmented[col], augmented[pivotRow]] = [augmented[pivotRow], augmented[col]];
+
+        const pivot = augmented[col][col];
+        for (let j = col; j <= n; j++) augmented[col][j] /= pivot;
+
+        for (let row = 0; row < n; row++) {
+          if (row === col) continue;
+          const factor = augmented[row][col];
+          for (let j = col; j <= n; j++) {
+            augmented[row][j] -= factor * augmented[col][j];
+          }
+        }
+      }
+
+      return augmented.map(row => row[n]);
+    }
+
+    function dotProduct(a, b) {
+      return a.reduce((sum, value, index) => sum + value * b[index], 0);
+    }
+
+    function trainLogLinearModel() {
+      const conditionRows = uniqueConditionSummary(getAllRows());
+      const validRows = conditionRows.filter(row =>
+        row.rate > 0 &&
+        row.concentration > 0 &&
+        Number.isFinite(row.temperature)
+      );
+
+      if (validRows.length < 4) {
+        return {
+          trained: false,
+          reason: "More valid data are needed before the prediction model can be trained."
+        };
+      }
+
+      /*
+        Improved prediction model:
+        ln(rate) = a + b(surface area) + c(temperature - 25) + d ln(concentration / 0.5)
+
+        This is more predictive than simple interpolation because:
+        1. It uses surface area, temperature and concentration together.
+        2. Temperature changes affect prediction continuously, including extrapolation.
+        3. Concentration follows a power relationship instead of only a straight-line segment.
+      */
+      const X = validRows.map(row => [
+        1,
+        row.surface === "Powder" ? 1 : 0,
+        row.temperature - 25,
+        Math.log(row.concentration / 0.5)
+      ]);
+
+      const y = validRows.map(row => Math.log(positiveOrMinimum(row.rate)));
+
+      const featureCount = 4;
+      const xtx = Array.from({ length: featureCount }, () => Array(featureCount).fill(0));
+      const xty = Array(featureCount).fill(0);
+
+      for (let i = 0; i < X.length; i++) {
+        for (let a = 0; a < featureCount; a++) {
+          xty[a] += X[i][a] * y[i];
+          for (let b = 0; b < featureCount; b++) {
+            xtx[a][b] += X[i][a] * X[i][b];
+          }
+        }
+      }
+
+      // Ridge regularisation keeps prediction stable when student data are noisy.
+      const lambda = 0.02;
+      for (let i = 1; i < featureCount; i++) {
+        xtx[i][i] += lambda;
+      }
+
+      let coefficients = solveLinearSystem(xtx, xty);
+
+      // Fallback model if the data are not mathematically suitable for regression.
+      if (!coefficients) {
+        const baselineRows = validRows.filter(row =>
+          row.surface === "Powder" &&
+          row.concentration === 0.5 &&
+          row.temperature === 25
+        );
+        const baselineRate = baselineRows.length > 0 ? baselineRows[0].rate : mean(validRows.map(row => row.rate));
+        coefficients = [
+          Math.log(positiveOrMinimum(baselineRate)),
+          0.55,
+          0.025,
+          0.9
+        ];
+      }
+
+      const predictedLogs = X.map(row => dotProduct(row, coefficients));
+      const yMean = mean(y);
+      const ssTotal = y.reduce((sum, value) => sum + Math.pow(value - yMean, 2), 0);
+      const ssResidual = y.reduce((sum, value, index) => sum + Math.pow(value - predictedLogs[index], 2), 0);
+      const rSquared = ssTotal === 0 ? 1 : Math.max(0, Math.min(1, 1 - ssResidual / ssTotal));
+
+      const temperatures = validRows.map(row => row.temperature);
+      const concentrations = validRows.map(row => row.concentration);
+
+      return {
+        trained: true,
+        coefficients,
+        rSquared,
+        dataCount: validRows.length,
+        minTemp: Math.min(...temperatures),
+        maxTemp: Math.max(...temperatures),
+        minConc: Math.min(...concentrations),
+        maxConc: Math.max(...concentrations),
+      };
+    }
+
+    function predictRateFromModel(model, surface, temperature, concentration) {
+      if (!model.trained || concentration <= 0 || !Number.isFinite(temperature)) return 0;
+
+      const features = [
+        1,
+        surface === "Powder" ? 1 : 0,
+        temperature - 25,
+        Math.log(concentration / 0.5)
+      ];
+
+      const logRate = dotProduct(features, model.coefficients);
+
+      // Prevent display overflow while still allowing extreme inputs to change prediction.
+      const cappedLogRate = Math.max(Math.log(0.02), Math.min(logRate, Math.log(100000)));
+      return positiveOrMinimum(Math.exp(cappedLogRate));
+    }
+
     function buildModel() {
-      const allRows = getAllRows();
-
-      const baselineRows = allRows.filter(row =>
-        row.surface === "Powder" &&
-        row.concentration === 0.5 &&
-        row.temperature === 25
-      );
-
-      const baselineTime = mean(baselineRows.map(row => row.time));
-      const baselineRate = positiveOrMinimum(rateFromTime(baselineTime));
-
-      const tempGroups = groupBy(
-        allRows.filter(row => row.surface === "Powder" && row.concentration === 0.5),
-        row => row.temperature
-      );
-
-      const tempPoints = Object.entries(tempGroups).map(([temp, rows]) => ({
-        x: toNumber(temp),
-        y: positiveOrMinimum(rateFromTime(mean(rows.map(row => row.time))) / baselineRate),
-      }));
-
-      const concGroups = groupBy(
-        allRows.filter(row => row.surface === "Powder" && row.temperature === 25),
-        row => row.concentration
-      );
-
-      const concPoints = Object.entries(concGroups).map(([conc, rows]) => ({
-        x: toNumber(conc),
-        y: positiveOrMinimum(rateFromTime(mean(rows.map(row => row.time))) / baselineRate),
-      }));
-
-      const granuleRows = allRows.filter(row =>
-        row.surface === "Granules" &&
-        row.concentration === 0.5 &&
-        row.temperature === 25
-      );
-
-      const granuleRate = rateFromTime(mean(granuleRows.map(row => row.time)));
-      const granuleFactor = granuleRows.length > 0 ? positiveOrMinimum(granuleRate / baselineRate) : 0.55;
+      const trainedModel = trainLogLinearModel();
 
       const predictionTemp = toNumber(document.getElementById("predictionTempInput").value, 25);
       const predictionConc = toNumber(document.getElementById("predictionConcInput").value, 0.5);
       const predictionSurface = document.getElementById("predictionSurfaceInput").value;
 
-      const tempFactor = positiveOrMinimum(interpolate(tempPoints, predictionTemp));
-      const concFactor = positiveOrMinimum(interpolate(concPoints, predictionConc));
-      const surfaceFactor = predictionSurface === "Powder" ? 1 : granuleFactor;
+      let predictedRate = 0;
+      if (trainedModel.trained) {
+        predictedRate = predictRateFromModel(trainedModel, predictionSurface, predictionTemp, predictionConc);
+      }
 
-      const predictedRate = positiveOrMinimum(baselineRate * tempFactor * concFactor * surfaceFactor);
-      const predictedTime = GAS_VOLUME_CM3 / predictedRate;
+      const predictedTime = predictedRate > 0 ? GAS_VOLUME_CM3 / predictedRate : 0;
 
-      const tempOutside = predictionTemp < 5 || predictionTemp > 51;
-      const concOutside = predictionConc < 0.3 || predictionConc > 1.5;
+      const tempOutside = trainedModel.trained && (predictionTemp < trainedModel.minTemp || predictionTemp > trainedModel.maxTemp);
+      const concOutside = trainedModel.trained && (predictionConc < trainedModel.minConc || predictionConc > trainedModel.maxConc);
+      const farOutside = trainedModel.trained && (
+        predictionTemp < trainedModel.minTemp - 20 ||
+        predictionTemp > trainedModel.maxTemp + 20 ||
+        predictionConc < trainedModel.minConc - 0.5 ||
+        predictionConc > trainedModel.maxConc + 0.5
+      );
+
       const extreme = predictionTemp > 60 || predictionConc > 2;
       const unsafe = predictionTemp >= 100 || predictionConc >= 3;
-      const reliability = unsafe ? "Very low" : extreme ? "Low" : tempOutside || concOutside ? "Medium-low" : "Higher";
+
+      let reliability = "Higher";
+      if (!trainedModel.trained) {
+        reliability = "Not ready";
+      } else if (unsafe) {
+        reliability = "Very low";
+      } else if (extreme || farOutside) {
+        reliability = "Low";
+      } else if (tempOutside || concOutside || trainedModel.rSquared < 0.6) {
+        reliability = "Medium-low";
+      }
 
       return {
         predictedRate,
@@ -794,6 +970,7 @@
         unsafe,
         tempOutside,
         concOutside,
+        trainedModel,
       };
     }
 
@@ -832,7 +1009,7 @@
       }
 
       if (!Number.isFinite(time) || time <= 0) {
-        formError.textContent = "Please enter a valid positive time in seconds.";
+        formError.textContent = "Please enter a valid positive time in seconds. 0 s is not accepted because the rate would be undefined.";
         return;
       }
 
@@ -878,7 +1055,7 @@
           <td>${row.concentration}</td>
           <td>${row.temperature}</td>
           <td>${row.time}</td>
-          <td>${round(rateFromTime(row.time), 2)}</td>
+          <td>${formatRate(rateFromTime(row.time), 2)}</td>
         </tr>
       `).join("");
     }
@@ -897,7 +1074,7 @@
           <td>${row.repeats}</td>
           <td>${round(row.averageTime, 2)}</td>
           <td>${round(row.sdTime, 2)}</td>
-          <td><strong>${round(row.rate, 2)}</strong></td>
+          <td><strong>${formatRate(row.rate, 2)}</strong></td>
         </tr>
       `).join("");
     }
@@ -905,30 +1082,44 @@
     function renderPrediction() {
       const model = buildModel();
 
-      document.getElementById("predictedRate").textContent = round(model.predictedRate, 2);
-      document.getElementById("predictedTime").textContent = round(model.predictedTime, 1);
+      document.getElementById("predictedRate").textContent = model.predictedRate > 0 ? round(model.predictedRate, 2) : "—";
+      document.getElementById("predictedTime").textContent = formatTime(model.predictedTime, 1);
       document.getElementById("reliabilityLabel").textContent = model.reliability;
 
       const statusBox = document.getElementById("statusBox");
       statusBox.className = "muted-card";
+
+      const modelInfo = model.trainedModel && model.trainedModel.trained
+        ? `<p style="margin:8px 0 0; font-size:13px;">Model trained with ${model.trainedModel.dataCount} combined condition(s). Model fit R² = ${round(model.trainedModel.rSquared, 2)}.</p>`
+        : `<p style="margin:8px 0 0; font-size:13px;">The model is not ready. Add more valid data.</p>`;
 
       if (model.unsafe) {
         statusBox.classList.add("note-red");
         statusBox.innerHTML = `
           <strong>⚠ Unsafe / unrealistic for school lab</strong>
           <p style="margin:6px 0 0;">Very high temperature or concentrated acid may cause serious safety risks. Treat this as mathematical extrapolation only.</p>
+          ${modelInfo}
         `;
       } else if (model.extreme) {
         statusBox.classList.add("note-amber");
         statusBox.innerHTML = `
           <strong>⚠ Extrapolation warning</strong>
           <p style="margin:6px 0 0;">The prediction is beyond most measured data. A faster reaction does not always mean a better practical choice.</p>
+          ${modelInfo}
+        `;
+      } else if (model.reliability === "Not ready") {
+        statusBox.classList.add("note-amber");
+        statusBox.innerHTML = `
+          <strong>Model not ready</strong>
+          <p style="margin:6px 0 0;">More valid experimental data are needed before the model can make predictions.</p>
+          ${modelInfo}
         `;
       } else {
         statusBox.classList.add("note-green");
         statusBox.innerHTML = `
           <strong>More suitable for school discussion</strong>
           <p style="margin:6px 0 0;">This condition is closer to the measured data range, so the prediction is more reliable.</p>
+          ${modelInfo}
         `;
       }
     }
@@ -937,17 +1128,17 @@
       const summary = buildSummary(getAllRows());
 
       const tempData = summary
-        .filter(row => row.test === "Temperature" && row.surface === "Powder" && row.concentration === 0.5)
+        .filter(row => row.test === "Temperature" && row.surface === "Powder" && row.concentration === 0.5 && row.rate !== null)
         .map(row => ({ label: row.temperature, x: row.temperature, y: row.rate }))
         .sort((a, b) => a.x - b.x);
 
       const concData = summary
-        .filter(row => row.test === "Concentration" && row.surface === "Powder" && row.temperature === 25)
+        .filter(row => row.test === "Concentration" && row.surface === "Powder" && row.temperature === 25 && row.rate !== null)
         .map(row => ({ label: row.concentration, x: row.concentration, y: row.rate }))
         .sort((a, b) => a.x - b.x);
 
       const surfaceData = summary
-        .filter(row => row.test === "Surface area" && row.concentration === 0.5 && row.temperature === 25)
+        .filter(row => row.test === "Surface area" && row.concentration === 0.5 && row.temperature === 25 && row.rate !== null)
         .map(row => ({ label: row.surface, x: row.surface, y: row.rate }));
 
       drawLineChart("tempChart", tempData, "Temperature / °C", "Rate / cm³ s⁻¹");
@@ -963,8 +1154,10 @@
       const plotW = width - margin.left - margin.right;
       const plotH = height - margin.top - margin.bottom;
 
+      data = data.filter(d => Number.isFinite(Number(d.x)) && d.y !== null && Number.isFinite(Number(d.y)));
+
       if (!data.length) {
-        container.innerHTML = "<p>No data available.</p>";
+        container.innerHTML = "<p>No valid data available.</p>";
         return;
       }
 
@@ -1021,8 +1214,10 @@
       const plotW = width - margin.left - margin.right;
       const plotH = height - margin.top - margin.bottom;
 
+      data = data.filter(d => d.y !== null && Number.isFinite(Number(d.y)));
+
       if (!data.length) {
-        container.innerHTML = "<p>No data available.</p>";
+        container.innerHTML = "<p>No valid data available.</p>";
         return;
       }
 
