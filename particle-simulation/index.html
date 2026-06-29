@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Particle Theory Simulation</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--muted:#f1f5f9;--text:#0f172a;--sub:#475569;--border:#e2e8f0;--accent:#0f172a}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:16px}.shell{max-width:1220px;margin:0 auto}.hero,.card{background:#fff;border:1px solid var(--border);border-radius:24px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.hero{padding:24px;margin-bottom:18px}.badge{display:inline-flex;gap:8px;background:var(--muted);border-radius:999px;padding:7px 12px;font-weight:800;font-size:13px}h1{margin:14px 0 8px;font-size:clamp(28px,5vw,42px);line-height:1.05}h2{margin:0 0 8px;font-size:24px}p{line-height:1.5}.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:18px}.card{padding:20px}.canvas-wrap{background:linear-gradient(#eef8ff,#fff);border:1px solid var(--border);border-radius:18px;overflow:hidden}canvas{display:block;width:100%;height:520px;touch-action:none}.legend{display:flex;flex-wrap:wrap;gap:10px;padding:12px;border-top:1px solid var(--border);background:#fff;color:var(--sub);font-size:13px}.legend-item{display:inline-flex;align-items:center;gap:6px;font-weight:700}.dot{width:12px;height:12px;border-radius:50%;display:inline-block}.controls{display:grid;gap:14px}.box{background:var(--muted);border-radius:18px;padding:16px;border:1px solid var(--border)}label{display:flex;justify-content:space-between;align-items:center;font-weight:900;margin-bottom:10px;gap:10px}input[type=range]{width:100%;accent-color:#0f172a}.range-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--sub);font-weight:700}.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.metric{background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px}.number{font-size:30px;font-weight:950;margin:4px 0}.unit{color:var(--sub);font-size:12px;font-weight:800}.explanation{margin-top:18px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:18px;padding:16px}.explanation h3{margin:0 0 8px;font-size:18px}.explanation ul{margin:8px 0 0;padding-left:20px;line-height:1.6}.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:14px;padding:12px 16px;font-weight:900;cursor:pointer;background:#0f172a;color:#fff;font-size:15px}button.secondary{background:#fff;color:#0f172a;border:1px solid #cbd5e1}.note{margin-top:18px;background:#eef2ff;border:1px solid #c7d2fe;color:#312e81;border-radius:18px;padding:16px}.note strong{display:block;margin-bottom:6px}@media(max-width:980px){.grid{grid-template-columns:1fr}canvas{height:460px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="hero">
+<div class="badge">🧪 Particle Theory Simulation</div>
+<h1>Factors Affecting Rate of Reaction</h1>
+<p style="margin:0;max-width:860px;color:#475569;font-size:16px">Adjust surface area, acid concentration and temperature to see how collision frequency changes the rate of reaction between calcium carbonate and hydrochloric acid.</p>
+</header>
+<main class="grid">
+<section class="card">
+<h2>Particle Simulation</h2>
+<p style="margin-top:0;color:#475569">Blue particles represent acid particles. Grey solids represent calcium carbonate. Yellow flashes show successful collisions at the exposed surface.</p>
+<div class="canvas-wrap">
+<canvas id="sim"></canvas>
+<div class="legend">
+<span class="legend-item"><span class="dot" style="background:#2563eb"></span>Acid particles</span>
+<span class="legend-item"><span class="dot" style="background:#64748b"></span>Calcium carbonate</span>
+<span class="legend-item"><span class="dot" style="background:#facc15"></span>Collision / reaction</span>
+<span class="legend-item"><span class="dot" style="background:#22c55e"></span>CO₂ gas produced</span>
+</div>
+</div>
+</section>
+<aside class="card">
+<h2>Control the Conditions</h2>
+<div class="controls">
+<div class="box"><label>Surface area of CaCO₃ <span id="surfaceValue">Medium</span></label><input id="surface" type="range" min="1" max="5" step="1" value="3"><div class="range-labels"><span>Small surface area</span><span>Large surface area</span></div></div>
+<div class="box"><label>Acid concentration <span id="concValue">Medium</span></label><input id="conc" type="range" min="1" max="5" step="1" value="3"><div class="range-labels"><span>Low concentration</span><span>High concentration</span></div></div>
+<div class="box"><label>Temperature <span id="tempValue">Medium</span></label><input id="temp" type="range" min="1" max="5" step="1" value="3"><div class="range-labels"><span>Low temperature</span><span>High temperature</span></div></div>
+</div>
+<div class="metric-grid">
+<div class="metric"><div class="unit">Collision frequency</div><div class="number" id="collisions">0</div><div class="unit">collisions / 10 s</div></div>
+<div class="metric"><div class="unit">Relative reaction rate</div><div class="number" id="rate">0</div><div class="unit">low → high</div></div>
+</div>
+<div class="btns"><button id="pauseBtn">Pause</button><button class="secondary" id="resetBtn">Reset collisions</button></div>
+<div class="explanation"><h3>Particle theory explanation</h3><ul id="exp"></ul></div>
+<div class="note"><strong>Key idea</strong>The sliders show the qualitative trend: more exposed surface, more acid particles, and faster-moving particles lead to more frequent collisions.</div>
+</aside>
+</main>
+</div>
+<script>
+const canvas=document.getElementById("sim"),ctx=canvas.getContext("2d");
+const surface=document.getElementById("surface"),conc=document.getElementById("conc"),temp=document.getElementById("temp");
+const surfaceValue=document.getElementById("surfaceValue"),concValue=document.getElementById("concValue"),tempValue=document.getElementById("tempValue");
+let W=0,H=0,particles=[],sites=[],flashes=[],bubbles=[],collisionTimes=[],paused=false,last=0;
+function levelText(n){return["Very low","Low","Medium","High","Very high"][n-1]}
+function roundRect(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();if(fill)ctx.fill();if(stroke)ctx.stroke()}
+function resize(){const rect=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;W=rect.width;H=rect.height;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);buildSolid();buildParticles()}
+function buildParticles(){const c=+conc.value,t=+temp.value,target=12+c*10,base=.65+t*.38;while(particles.length<target){const a=Math.random()*Math.PI*2,s=base*(.65+Math.random()*.7);particles.push({x:30+Math.random()*(W-60),y:30+Math.random()*(H*.68),vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:5+Math.random()*2})}while(particles.length>target)particles.pop();for(const p of particles){const a=Math.atan2(p.vy,p.vx),s=base*(.65+Math.random()*.7);p.vx=Math.cos(a)*s;p.vy=Math.sin(a)*s}}
+function buildSolid(){const s=+surface.value,baseY=H*.78,cx=W*.5;sites=[];if(s<=2){const count=s;for(let i=0;i<count;i++){const lw=150-s*20,lh=54,x=cx-(count*lw)/2+i*lw+10,y=baseY,n=5+s*3;for(let j=0;j<n;j++)sites.push({x:x+18+j*((lw-36)/Math.max(n-1,1)),y:y-5+Math.sin(j)*2,lumpX:x,lumpY:y,lumpW:lw,lumpH:lh,shape:"lump"})}}else{const pieces=3+s*4,cols=Math.ceil(Math.sqrt(pieces)),sx=cx-(cols-1)*48/2;for(let i=0;i<pieces;i++){const row=Math.floor(i/cols),col=i%cols,x=sx+col*48+(Math.random()-.5)*6,y=baseY+row*34+(Math.random()-.5)*6;sites.push({x,y,lumpX:x-14,lumpY:y-12,lumpW:28,lumpH:24,shape:"piece"})}}}
+function drawBg(){ctx.clearRect(0,0,W,H);ctx.fillStyle="#eff6ff";ctx.fillRect(0,0,W,H);ctx.strokeStyle="#93c5fd";ctx.lineWidth=4;roundRect(10,10,W-20,H-20,22,false,true)}
+function drawSolid(){if(+surface.value<=2){const seen=new Set();for(const st of sites){const key=st.lumpX+"-"+st.lumpY;if(seen.has(key))continue;seen.add(key);ctx.fillStyle="#94a3b8";ctx.strokeStyle="#475569";ctx.lineWidth=2;roundRect(st.lumpX,st.lumpY,st.lumpW,st.lumpH,18,true,true);ctx.fillStyle="#64748b";ctx.font="bold 13px sans-serif";ctx.fillText("CaCO₃",st.lumpX+st.lumpW/2-22,st.lumpY+st.lumpH/2+5)}}else{for(const st of sites){ctx.fillStyle="#94a3b8";ctx.strokeStyle="#475569";ctx.lineWidth=1.5;roundRect(st.lumpX,st.lumpY,st.lumpW,st.lumpH,7,true,true)}}for(const st of sites){ctx.beginPath();ctx.arc(st.x,st.y,4,0,Math.PI*2);ctx.fillStyle="#facc15";ctx.fill();ctx.strokeStyle="#ca8a04";ctx.stroke()}ctx.fillStyle="#475569";ctx.font="bold 13px sans-serif";ctx.fillText("Exposed CaCO₃ surface",18,H-22)}
+function updateParticles(dt){for(const p of particles){p.x+=p.vx*dt*60;p.y+=p.vy*dt*60;if(p.x<p.r||p.x>W-p.r){p.x=Math.max(p.r,Math.min(W-p.r,p.x));p.vx*=-1}if(p.y<p.r||p.y>H-10-p.r){p.y=Math.max(p.r,Math.min(H-10-p.r,p.y));p.vy*=-1}for(const st of sites){const dx=p.x-st.x,dy=p.y-st.y,d=Math.hypot(dx,dy);if(d<p.r+7){const now=performance.now();if(!p.lastCollision||now-p.lastCollision>350){p.lastCollision=now;collisionTimes.push(now);flashes.push({x:st.x,y:st.y,life:1});bubbles.push({x:st.x,y:st.y-4,vy:-1.1-Math.random(),life:1})}const a=Math.atan2(dy,dx),sp=Math.hypot(p.vx,p.vy)||1;p.vx=Math.cos(a)*sp;p.vy=Math.sin(a)*sp;p.x=st.x+Math.cos(a)*(p.r+9);p.y=st.y+Math.sin(a)*(p.r+9)}}}}
+function drawParticles(){for(const p of particles){ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle="#2563eb";ctx.fill();ctx.strokeStyle="#1e40af";ctx.stroke();ctx.beginPath();ctx.arc(p.x-2,p.y-2,p.r*.35,0,Math.PI*2);ctx.fillStyle="rgba(255,255,255,.6)";ctx.fill()}}
+function effects(dt){for(const f of flashes)f.life-=dt*2.8;flashes=flashes.filter(f=>f.life>0);for(const b of bubbles){b.y+=b.vy*dt*60;b.life-=dt*.9}bubbles=bubbles.filter(b=>b.life>0)}
+function drawEffects(){for(const f of flashes){ctx.beginPath();ctx.arc(f.x,f.y,16*(1-f.life)+5,0,Math.PI*2);ctx.fillStyle=`rgba(250,204,21,${f.life})`;ctx.fill();ctx.strokeStyle=`rgba(234,88,12,${f.life})`;ctx.stroke()}for(const b of bubbles){ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fillStyle=`rgba(34,197,94,${b.life})`;ctx.fill();ctx.strokeStyle=`rgba(22,101,52,${b.life})`;ctx.stroke()}}
+function updateMetrics(){const now=performance.now();collisionTimes=collisionTimes.filter(t=>now-t<=10000);document.getElementById("collisions").textContent=collisionTimes.length;document.getElementById("rate").textContent=Math.round(10*(.35*+surface.value+.3*+conc.value+.35*+temp.value))}
+function updateLabels(){surfaceValue.textContent=levelText(+surface.value);concValue.textContent=levelText(+conc.value);tempValue.textContent=levelText(+temp.value)}
+function updateExplanation(){const s=+surface.value,c=+conc.value,t=+temp.value,lines=["A reaction becomes faster when particles collide with each other more frequently."];if(s>=4){lines.push("Larger surface area exposes more calcium carbonate to the acid.");lines.push("More exposed surface allows more frequent collisions.")}else if(s<=2){lines.push("Smaller surface area exposes less calcium carbonate to the acid.");lines.push("Fewer exposed sites reduce the chance of successful collisions.")}else lines.push("Increasing surface area exposes more calcium carbonate to the acid.");if(t>=4){lines.push("Higher temperature makes particles move faster.");lines.push("Faster particles collide more frequently.")}else if(t<=2){lines.push("Lower temperature makes particles move more slowly.");lines.push("Slower particles collide less frequently.")}else lines.push("Increasing temperature makes particles move faster.");if(c>=4){lines.push("Higher acid concentration means more acid particles are present.");lines.push("More acid particles increase the frequency of collisions.")}else if(c<=2){lines.push("Lower acid concentration means fewer acid particles are present.");lines.push("Fewer acid particles reduce the frequency of collisions.")}else lines.push("Increasing acid concentration means more acid particles are present.");lines.push("Therefore, the reaction rate becomes faster when collision frequency increases.");document.getElementById("exp").innerHTML=lines.map(x=>`<li>${x}</li>`).join("")}
+function controlsChanged(){updateLabels();buildSolid();buildParticles();updateExplanation()}
+function loop(ts){if(!last)last=ts;const dt=Math.min((ts-last)/1000,.033);last=ts;if(!paused){updateParticles(dt);effects(dt)}drawBg();drawSolid();drawParticles();drawEffects();updateMetrics();requestAnimationFrame(loop)}
+[surface,conc,temp].forEach(sl=>{sl.addEventListener("input",controlsChanged);sl.addEventListener("change",controlsChanged)});
+document.getElementById("pauseBtn").addEventListener("click",e=>{paused=!paused;e.target.textContent=paused?"Resume":"Pause"});
+document.getElementById("resetBtn").addEventListener("click",()=>{collisionTimes=[];flashes=[];bubbles=[];updateMetrics()});
+window.addEventListener("resize",resize);
+resize();updateLabels();updateExplanation();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
