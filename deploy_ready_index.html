@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reaction Rate Prediction Model - Improved Log-linear Version</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --muted: #f1f5f9;
+      --text: #0f172a;
+      --subtext: #475569;
+      --border: #e2e8f0;
+      --accent: #0f172a;
+      --blue-bg: #eff6ff;
+      --blue-border: #bfdbfe;
+      --blue-text: #1e3a8a;
+      --green-bg: #f0fdf4;
+      --green-border: #bbf7d0;
+      --green-text: #166534;
+      --amber-bg: #fffbeb;
+      --amber-border: #fde68a;
+      --amber-text: #92400e;
+      --red-bg: #fef2f2;
+      --red-border: #fecaca;
+      --red-text: #991b1b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 16px;
+    }
+
+    .shell {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    .hero, .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .hero {
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--muted);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    h1 {
+      margin: 14px 0 8px;
+      font-size: clamp(28px, 5vw, 44px);
+      line-height: 1.05;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin: 0 0 8px;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+    }
+
+    p {
+      line-height: 1.5;
+    }
+
+    .muted-card {
+      background: var(--muted);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      background: #e2e8f0;
+      border-radius: 22px;
+      padding: 8px;
+      margin-bottom: 18px;
+    }
+
+    .tab-btn {
+      border: 0;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 15px;
+      background: transparent;
+      color: var(--subtext);
+    }
+
+    .tab-btn.active {
+      background: white;
+      color: var(--text);
+    }
+
+    .card {
+      padding: 20px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr 1fr 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 16px;
+      background: white;
+    }
+
+    input[type="range"] {
+      padding: 0;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+    }
+
+    .secondary-btn {
+      border: 1px solid #cbd5e1;
+      background: white;
+      color: var(--text);
+    }
+
+    .small-btn {
+      padding: 8px 10px;
+      font-size: 13px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .note-blue {
+      background: var(--blue-bg);
+      border: 1px solid var(--blue-border);
+      color: var(--blue-text);
+    }
+
+    .note-green {
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      color: var(--green-text);
+    }
+
+    .note-amber {
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: var(--amber-text);
+    }
+
+    .note-red {
+      background: var(--red-bg);
+      border: 1px solid var(--red-border);
+      color: var(--red-text);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      font-size: 14px;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px;
+      background: var(--muted);
+      color: var(--subtext);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    td {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .predict-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      gap: 18px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .result-card {
+      background: #0f172a;
+      color: white;
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .big-number {
+      font-size: 34px;
+      font-weight: 900;
+    }
+
+    .chart-box {
+      height: 300px;
+      width: 100%;
+      position: relative;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .axis-label {
+      font-size: 12px;
+      fill: #475569;
+    }
+
+    .tick-label {
+      font-size: 11px;
+      fill: #64748b;
+    }
+
+    .line-path {
+      fill: none;
+      stroke: #0f172a;
+      stroke-width: 3;
+    }
+
+    .dot {
+      fill: #0f172a;
+    }
+
+    .bar {
+      fill: #0f172a;
+    }
+
+    .status {
+      font-weight: 900;
+    }
+
+    .passed {
+      color: var(--green-text);
+    }
+
+    .failed {
+      color: var(--red-text);
+    }
+
+    @media (max-width: 1000px) {
+      .hero-grid,
+      .predict-grid,
+      .chart-grid,
+      .two-col,
+      .input-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="badge">🧪 CaCO₃ + HCl Rate Investigation</div>
+          <h1>Reaction Rate Prediction Model</h1>
+          <p style="margin:0; max-width:760px; color:#475569; font-size:16px;">
+            Students first add their own group results. The model then dynamically combines student data with lab tech data to update the graphs and prediction using a more predictive log-linear model.
+          </p>
+        </div>
+        <div class="muted-card" style="min-width:260px;">
+          <strong>Fixed fair-test conditions</strong>
+          <p style="margin:6px 0 0;">0.5 g CaCO₃ · 20 mL HCl · collect 60 mL CO₂</p>
+          <p style="margin:6px 0 0; color:#64748b; font-size:13px;">Rate = 60 ÷ average time / cm³ s⁻¹</p>
+          <p style="margin:6px 0 0; color:#64748b; font-size:13px;">If time = 0 s, rate is undefined.</p>
+        </div>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="student">1. Student Data</button>
+      <button class="tab-btn" data-tab="summary">2. Summary</button>
+      <button class="tab-btn" data-tab="charts">3. Graphs</button>
+      <button class="tab-btn" data-tab="predict">4. Predict</button>
+    </nav>
+
+    <section id="tab-student" class="tab-panel card">
+      <div class="top-row">
+        <div>
+          <h2>Add student experimental data</h2>
+          <p style="margin:6px 0 0; color:#64748b;">
+            Start here. Each group enters its own results first. After clicking Add, the graphs and prediction are recalculated immediately.
+          </p>
+        </div>
+        <button class="secondary-btn" id="clearStudentDataBtn">Clear student data</button>
+      </div>
+
+      <div class="muted-card note-blue" style="margin-top:18px;">
+        <strong>Dynamic model behaviour</strong>
+        <p style="margin:6px 0 0;">
+          Student data are included in the combined dataset. The summary table, graphs and prediction model update immediately after each entry. The prediction model learns from all valid conditions, not only from one graph at a time.
+        </p>
+      </div>
+
+      <div class="muted-card" style="margin-top:18px;">
+        <div class="input-grid">
+          <div>
+            <label for="groupInput">Group</label>
+            <select id="groupInput">
+              <option value="Group 1">Group 1</option>
+              <option value="Group 2">Group 2</option>
+              <option value="Group 3">Group 3</option>
+              <option value="Group 4">Group 4</option>
+              <option value="Group 5">Group 5</option>
+              <option value="Group 6">Group 6</option>
+              <option value="Group 7">Group 7</option>
+              <option value="Group 8">Group 8</option>
+            </select>
+          </div>
+          <div>
+            <label for="independentVariableInput">Independent variable</label>
+            <select id="independentVariableInput">
+              <option value="Surface area">Surface area</option>
+              <option value="Temperature">Temperature</option>
+              <option value="Concentration">Concentration</option>
+            </select>
+          </div>
+          <div>
+            <label for="surfaceInput">CaCO₃ form</label>
+            <select id="surfaceInput">
+              <option value="Powder">Powder</option>
+              <option value="Granules">Granules</option>
+            </select>
+          </div>
+          <div>
+            <label for="concInput">HCl / M</label>
+            <input id="concInput" inputmode="decimal" value="0.5" />
+          </div>
+          <div>
+            <label for="tempInput">Temp / °C</label>
+            <input id="tempInput" inputmode="decimal" value="25" />
+          </div>
+          <div>
+            <label for="timeInput">Time / s</label>
+            <input id="timeInput" inputmode="decimal" placeholder="e.g. 12" />
+          </div>
+          <button id="addStudentDataBtn">Add</button>
+        </div>
+        <p id="formError" style="margin:10px 0 0; color:#b91c1c; font-weight:800;"></p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Group</th>
+              <th>Independent variable</th>
+              <th>Surface</th>
+              <th>Conc. / M</th>
+              <th>Temp / °C</th>
+              <th>Time / s</th>
+              <th>Rate / cm³ s⁻¹</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody">
+            <tr><td colspan="9">No student data added yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-predict" class="tab-panel predict-grid hidden">
+      <div class="card">
+        <div class="top-row" style="margin-bottom:22px;">
+          <div>
+            <h2>Control the conditions</h2>
+            <p style="margin:6px 0 0; color:#64748b;">Move the sliders to see how the predicted rate changes.</p>
+          </div>
+          <select id="modeInput" style="width:250px;">
+            <option value="school">School realistic range</option>
+            <option value="extreme">Extreme extrapolation range</option>
+          </select>
+        </div>
+
+        <div class="muted-card note-blue" style="margin-bottom:16px;">
+          <strong>Improved prediction model</strong>
+          <p style="margin:6px 0 0;">
+            The model now uses all valid data to learn this relationship:
+            <br><strong>ln(rate) = a + b(surface area) + c(temperature) + d ln(concentration)</strong>
+            <br>This gives stronger predictive behaviour when temperature or concentration is changed, while still warning students when the input is outside the tested range.
+          </p>
+        </div>
+
+        <div class="two-col">
+          <div class="muted-card">
+            <label style="display:flex; justify-content:space-between;">
+              <span>🌡 Temperature</span>
+              <span id="predictionTempLabel">25°C</span>
+            </label>
+            <input type="range" id="predictionTempInput" min="5" max="60" step="1" value="25" />
+            <div style="display:flex; justify-content:space-between; color:#64748b; font-size:12px;">
+              <span>5°C</span><span id="maxTempLabel">60°C</span>
+            </div>
+          </div>
+
+          <div class="muted-card">
+            <label style="display:flex; justify-content:space-between;">
+              <span>⚗ HCl concentration</span>
+              <span id="predictionConcLabel">0.5 M</span>
+            </label>
+            <input type="range" id="predictionConcInput" min="0.3" max="2" step="0.1" value="0.5" />
+            <div style="display:flex; justify-content:space-between; color:#64748b; font-size:12px;">
+              <span>0.3 M</span><span id="maxConcLabel">2 M</span>
+            </div>
+          </div>
+
+          <div class="muted-card">
+            <label for="predictionSurfaceInput">Surface area of CaCO₃</label>
+            <select id="predictionSurfaceInput">
+              <option value="Powder">Powder</option>
+              <option value="Granules">Granules / tube</option>
+            </select>
+            <p style="margin:8px 0 0; color:#64748b; font-size:13px;">Powder gives a larger surface area and usually a faster reaction.</p>
+          </div>
+
+          <div class="result-card">
+            <p style="margin:0; color:#cbd5e1;">Predicted result</p>
+            <div class="result-grid">
+              <div>
+                <div class="big-number" id="predictedRate">—</div>
+                <div style="color:#cbd5e1; font-size:12px;">cm³ s⁻¹</div>
+              </div>
+              <div>
+                <div class="big-number" id="predictedTime">—</div>
+                <div style="color:#cbd5e1; font-size:12px;">s for 60 mL CO₂</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="card">
+        <h2>Decision support</h2>
+        <div class="muted-card">
+          <p style="margin:0; color:#64748b;">Prediction reliability</p>
+          <p id="reliabilityLabel" style="margin:6px 0 0; font-size:28px; font-weight:900;">—</p>
+        </div>
+        <div id="statusBox" class="muted-card" style="margin-top:12px;"></div>
+        <div style="margin-top:16px; color:#475569; font-size:14px;">
+          <strong style="color:#0f172a;">Students should justify their choice using:</strong>
+          <ul style="padding-left:20px; line-height:1.7;">
+            <li>reaction rate and time saved</li>
+            <li>safety of acid concentration and temperature</li>
+            <li>cost and energy use</li>
+            <li>reliability of extrapolated predictions</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <section id="tab-charts" class="tab-panel chart-grid hidden">
+      <div class="card">
+        <h2>Effect of temperature</h2>
+        <p style="margin-top:-8px; color:#64748b; font-size:13px;">x-axis: temperature / °C; y-axis: rate / cm³ s⁻¹</p>
+        <div class="chart-box" id="tempChart"></div>
+      </div>
+      <div class="card">
+        <h2>Effect of concentration</h2>
+        <p style="margin-top:-8px; color:#64748b; font-size:13px;">x-axis: HCl concentration / mol dm⁻³; y-axis: rate / cm³ s⁻¹</p>
+        <div class="chart-box" id="concChart"></div>
+      </div>
+      <div class="card">
+        <h2>Effect of surface area</h2>
+        <p style="margin-top:-8px; color:#64748b; font-size:13px;">x-axis: form of CaCO₃; y-axis: rate / cm³ s⁻¹</p>
+        <div class="chart-box" id="surfaceChart"></div>
+      </div>
+    </section>
+
+    <section id="tab-summary" class="tab-panel card hidden">
+      <h2>Combined data summary</h2>
+      <p style="margin-top:0; color:#64748b;">This table combines lab tech and student data. It updates immediately after student data are added.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Variable</th>
+              <th>Surface</th>
+              <th>Conc. / M</th>
+              <th>Temp / °C</th>
+              <th>Repeats</th>
+              <th>Average time / s</th>
+              <th>SD / s</th>
+              <th>Average rate / cm³ s⁻¹</th>
+            </tr>
+          </thead>
+          <tbody id="summaryTableBody"></tbody>
+        </table>
+      </div>
+      <div class="muted-card" style="margin-top:16px;">
+        <strong>Model note for students</strong>
+        <p style="margin:6px 0 0; color:#475569;">
+          This is an empirical log-linear prediction model based on measured data. It learns the effects of surface area, temperature and concentration together. Predictions within the measured range are more reliable. Predictions at very high temperature or very high acid concentration are extrapolations and should not be treated as safe laboratory instructions.
+        </p>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    const GAS_VOLUME_CM3 = 60;
+    const STORAGE_KEY = "reactionRateStudentRowsV2";
+
+    const labTechRows = [
+      ...[13, 13, 13, 13, 13].map((time, i) => makeLabRow("Surface area", "Powder", 0.5, 25, time, i)),
+      ...[26, 25, 24, 22, 23, 21, 25].map((time, i) => makeLabRow("Surface area", "Granules", 0.5, 25, time, i)),
+
+      ...[17, 19, 20, 13, 17, 16, 13].map((time, i) => makeLabRow("Temperature", "Powder", 0.5, 5, time, i)),
+      ...[13, 13, 13, 13, 13].map((time, i) => makeLabRow("Temperature", "Powder", 0.5, 25, time, i)),
+      ...[10, 8, 11, 9, 8, 8, 7].map((time, i) => makeLabRow("Temperature", "Powder", 0.5, 31, time, i)),
+      ...[4, 4, 6, 6, 13, 4, 7].map((time, i) => makeLabRow("Temperature", "Powder", 0.5, 41, time, i)),
+      ...[5, 6, 5, 7, 6, 7, 8].map((time, i) => makeLabRow("Temperature", "Powder", 0.5, 51, time, i)),
+
+      ...[72, 40, 44, 49, 33, 49, 50].map((time, i) => makeLabRow("Concentration", "Powder", 0.3, 25, time, i)),
+      ...[13, 13, 13, 13, 13].map((time, i) => makeLabRow("Concentration", "Powder", 0.5, 25, time, i)),
+      ...[12, 6, 7, 6, 6, 6, 5].map((time, i) => makeLabRow("Concentration", "Powder", 1, 25, time, i)),
+      ...[5, 4, 4, 5, 5, 5].map((time, i) => makeLabRow("Concentration", "Powder", 1.5, 25, time, i)),
+    ];
+
+    let studentRows = loadStudentRows();
+
+    function makeLabRow(test, surface, concentration, temperature, time, index) {
+      return {
+        source: "Lab tech",
+        group: "Lab tech",
+        independentVariable: test,
+        test,
+        surface,
+        concentration,
+        temperature,
+        time,
+        trial: index + 1
+      };
+    }
+
+    function toNumber(value, fallback = 0) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function mean(values) {
+      const nums = values.map(Number).filter(Number.isFinite);
+      if (nums.length === 0) return 0;
+      return nums.reduce((sum, value) => sum + value, 0) / nums.length;
+    }
+
+    function standardDeviation(values) {
+      const nums = values.map(Number).filter(Number.isFinite);
+      if (nums.length <= 1) return 0;
+      const average = mean(nums);
+      const variance = nums.reduce((sum, value) => sum + Math.pow(value - average, 2), 0) / (nums.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    function rateFromTime(time) {
+      const numericTime = Number(time);
+
+      // Rate = volume / time.
+      // If time is 0 s, the rate is mathematically undefined because division by zero is not allowed.
+      // In the experiment, 0 s is also physically invalid because CO₂ collection takes measurable time.
+      if (!Number.isFinite(numericTime) || numericTime <= 0) return null;
+
+      return GAS_VOLUME_CM3 / numericTime;
+    }
+
+    function round(value, decimalPlaces = 2) {
+      if (value === null || value === undefined) return "—";
+      const numericValue = Number(value);
+      if (!Number.isFinite(numericValue)) return "—";
+      return numericValue.toFixed(decimalPlaces);
+    }
+
+    function formatRate(value, decimalPlaces = 2) {
+      if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+        return "Undefined";
+      }
+      return round(value, decimalPlaces);
+    }
+
+    function formatTime(value, decimalPlaces = 1) {
+      if (value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) <= 0) {
+        return "—";
+      }
+      if (Number(value) < 0.1) return "<0.1";
+      return round(value, decimalPlaces);
+    }
+
+    function groupBy(rows, keyFn) {
+      return rows.reduce((acc, row) => {
+        const key = keyFn(row);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(row);
+        return acc;
+      }, {});
+    }
+
+    function interpolate(points, xValue) {
+      const x = Number(xValue);
+      const sorted = points
+        .map(point => ({ x: Number(point.x), y: Number(point.y) }))
+        .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
+        .sort((a, b) => a.x - b.x);
+
+      if (!Number.isFinite(x)) return 1;
+      if (sorted.length === 0) return 1;
+      if (sorted.length === 1) return sorted[0].y;
+
+      if (x <= sorted[0].x) {
+        const a = sorted[0];
+        const b = sorted[1];
+        return a.y + ((x - a.x) * (b.y - a.y)) / (b.x - a.x);
+      }
+
+      const lastIndex = sorted.length - 1;
+      if (x >= sorted[lastIndex].x) {
+        const a = sorted[lastIndex - 1];
+        const b = sorted[lastIndex];
+        return a.y + ((x - a.x) * (b.y - a.y)) / (b.x - a.x);
+      }
+
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const a = sorted[i];
+        const b = sorted[i + 1];
+        if (x >= a.x && x <= b.x) {
+          return a.y + ((x - a.x) * (b.y - a.y)) / (b.x - a.x);
+        }
+      }
+
+      return 1;
+    }
+
+    function positiveOrMinimum(value, minimum = 0.02) {
+      if (value === null || value === undefined) return minimum;
+      const numericValue = Number(value);
+      if (!Number.isFinite(numericValue)) return minimum;
+      return Math.max(minimum, numericValue);
+    }
+
+    function getAllRows() {
+      return [...labTechRows, ...studentRows];
+    }
+
+    function buildSummary(rows) {
+      const grouped = groupBy(rows, row => [row.test, row.surface, row.concentration, row.temperature].join("|"));
+
+      return Object.entries(grouped).map(([key, groupedRows]) => {
+        const [test, surface, concentration, temperature] = key.split("|");
+        const times = groupedRows.map(row => toNumber(row.time)).filter(time => time > 0);
+        const averageTime = mean(times);
+
+        return {
+          key,
+          source: groupedRows.some(row => row.source === "Student") ? "Lab + student" : "Lab tech",
+          independentVariable: test,
+          test,
+          surface,
+          concentration: toNumber(concentration),
+          temperature: toNumber(temperature),
+          repeats: times.length,
+          averageTime,
+          sdTime: standardDeviation(times),
+          rate: averageTime > 0 ? rateFromTime(averageTime) : null,
+        };
+      }).sort((a, b) =>
+        a.test.localeCompare(b.test) ||
+        a.temperature - b.temperature ||
+        a.concentration - b.concentration ||
+        a.surface.localeCompare(b.surface)
+      );
+    }
+
+    function uniqueConditionSummary(rows) {
+      const grouped = groupBy(rows, row => [row.surface, row.concentration, row.temperature].join("|"));
+
+      return Object.entries(grouped).map(([key, groupedRows]) => {
+        const [surface, concentration, temperature] = key.split("|");
+        const times = groupedRows.map(row => toNumber(row.time)).filter(time => time > 0);
+        const averageTime = mean(times);
+        return {
+          surface,
+          concentration: toNumber(concentration),
+          temperature: toNumber(temperature),
+          repeats: times.length,
+          averageTime,
+          rate: rateFromTime(averageTime),
+        };
+      }).filter(row =>
+        row.rate > 0 &&
+        row.concentration > 0 &&
+        Number.isFinite(row.temperature)
+      );
+    }
+
+    function solveLinearSystem(matrix, vector) {
+      const n = vector.length;
+      const augmented = matrix.map((row, i) => [...row, vector[i]]);
+
+      for (let col = 0; col < n; col++) {
+        let pivotRow = col;
+        for (let row = col + 1; row < n; row++) {
+          if (Math.abs(augmented[row][col]) > Math.abs(augmented[pivotRow][col])) {
+            pivotRow = row;
+          }
+        }
+
+        if (Math.abs(augmented[pivotRow][col]) < 1e-10) return null;
+
+        [augmented[col], augmented[pivotRow]] = [augmented[pivotRow], augmented[col]];
+
+        const pivot = augmented[col][col];
+        for (let j = col; j <= n; j++) augmented[col][j] /= pivot;
+
+        for (let row = 0; row < n; row++) {
+          if (row === col) continue;
+          const factor = augmented[row][col];
+          for (let j = col; j <= n; j++) {
+            augmented[row][j] -= factor * augmented[col][j];
+          }
+        }
+      }
+
+      return augmented.map(row => row[n]);
+    }
+
+    function dotProduct(a, b) {
+      return a.reduce((sum, value, index) => sum + value * b[index], 0);
+    }
+
+    function trainLogLinearModel() {
+      const conditionRows = uniqueConditionSummary(getAllRows());
+      const validRows = conditionRows.filter(row =>
+        row.rate > 0 &&
+        row.concentration > 0 &&
+        Number.isFinite(row.temperature)
+      );
+
+      if (validRows.length < 4) {
+        return {
+          trained: false,
+          reason: "More valid data are needed before the prediction model can be trained."
+        };
+      }
+
+      /*
+        Improved prediction model:
+        ln(rate) = a + b(surface area) + c(temperature - 25) + d ln(concentration / 0.5)
+
+        This is more predictive than simple interpolation because:
+        1. It uses surface area, temperature and concentration together.
+        2. Temperature changes affect prediction continuously, including extrapolation.
+        3. Concentration follows a power relationship instead of only a straight-line segment.
+      */
+      const X = validRows.map(row => [
+        1,
+        row.surface === "Powder" ? 1 : 0,
+        row.temperature - 25,
+        Math.log(row.concentration / 0.5)
+      ]);
+
+      const y = validRows.map(row => Math.log(positiveOrMinimum(row.rate)));
+
+      const featureCount = 4;
+      const xtx = Array.from({ length: featureCount }, () => Array(featureCount).fill(0));
+      const xty = Array(featureCount).fill(0);
+
+      for (let i = 0; i < X.length; i++) {
+        for (let a = 0; a < featureCount; a++) {
+          xty[a] += X[i][a] * y[i];
+          for (let b = 0; b < featureCount; b++) {
+            xtx[a][b] += X[i][a] * X[i][b];
+          }
+        }
+      }
+
+      // Ridge regularisation keeps prediction stable when student data are noisy.
+      const lambda = 0.02;
+      for (let i = 1; i < featureCount; i++) {
+        xtx[i][i] += lambda;
+      }
+
+      let coefficients = solveLinearSystem(xtx, xty);
+
+      // Fallback model if the data are not mathematically suitable for regression.
+      if (!coefficients) {
+        const baselineRows = validRows.filter(row =>
+          row.surface === "Powder" &&
+          row.concentration === 0.5 &&
+          row.temperature === 25
+        );
+        const baselineRate = baselineRows.length > 0 ? baselineRows[0].rate : mean(validRows.map(row => row.rate));
+        coefficients = [
+          Math.log(positiveOrMinimum(baselineRate)),
+          0.55,
+          0.025,
+          0.9
+        ];
+      }
+
+      const predictedLogs = X.map(row => dotProduct(row, coefficients));
+      const yMean = mean(y);
+      const ssTotal = y.reduce((sum, value) => sum + Math.pow(value - yMean, 2), 0);
+      const ssResidual = y.reduce((sum, value, index) => sum + Math.pow(value - predictedLogs[index], 2), 0);
+      const rSquared = ssTotal === 0 ? 1 : Math.max(0, Math.min(1, 1 - ssResidual / ssTotal));
+
+      const temperatures = validRows.map(row => row.temperature);
+      const concentrations = validRows.map(row => row.concentration);
+
+      return {
+        trained: true,
+        coefficients,
+        rSquared,
+        dataCount: validRows.length,
+        minTemp: Math.min(...temperatures),
+        maxTemp: Math.max(...temperatures),
+        minConc: Math.min(...concentrations),
+        maxConc: Math.max(...concentrations),
+      };
+    }
+
+    function predictRateFromModel(model, surface, temperature, concentration) {
+      if (!model.trained || concentration <= 0 || !Number.isFinite(temperature)) return 0;
+
+      const features = [
+        1,
+        surface === "Powder" ? 1 : 0,
+        temperature - 25,
+        Math.log(concentration / 0.5)
+      ];
+
+      const logRate = dotProduct(features, model.coefficients);
+
+      // Prevent display overflow while still allowing extreme inputs to change prediction.
+      const cappedLogRate = Math.max(Math.log(0.02), Math.min(logRate, Math.log(100000)));
+      return positiveOrMinimum(Math.exp(cappedLogRate));
+    }
+
+    function buildModel() {
+      const trainedModel = trainLogLinearModel();
+
+      const predictionTemp = toNumber(document.getElementById("predictionTempInput").value, 25);
+      const predictionConc = toNumber(document.getElementById("predictionConcInput").value, 0.5);
+      const predictionSurface = document.getElementById("predictionSurfaceInput").value;
+
+      let predictedRate = 0;
+      if (trainedModel.trained) {
+        predictedRate = predictRateFromModel(trainedModel, predictionSurface, predictionTemp, predictionConc);
+      }
+
+      const predictedTime = predictedRate > 0 ? GAS_VOLUME_CM3 / predictedRate : 0;
+
+      const tempOutside = trainedModel.trained && (predictionTemp < trainedModel.minTemp || predictionTemp > trainedModel.maxTemp);
+      const concOutside = trainedModel.trained && (predictionConc < trainedModel.minConc || predictionConc > trainedModel.maxConc);
+      const farOutside = trainedModel.trained && (
+        predictionTemp < trainedModel.minTemp - 20 ||
+        predictionTemp > trainedModel.maxTemp + 20 ||
+        predictionConc < trainedModel.minConc - 0.5 ||
+        predictionConc > trainedModel.maxConc + 0.5
+      );
+
+      const extreme = predictionTemp > 60 || predictionConc > 2;
+      const unsafe = predictionTemp >= 100 || predictionConc >= 3;
+
+      let reliability = "Higher";
+      if (!trainedModel.trained) {
+        reliability = "Not ready";
+      } else if (unsafe) {
+        reliability = "Very low";
+      } else if (extreme || farOutside) {
+        reliability = "Low";
+      } else if (tempOutside || concOutside || trainedModel.rSquared < 0.6) {
+        reliability = "Medium-low";
+      }
+
+      return {
+        predictedRate,
+        predictedTime,
+        reliability,
+        extreme,
+        unsafe,
+        tempOutside,
+        concOutside,
+        trainedModel,
+      };
+    }
+
+    function saveStudentRows() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(studentRows));
+    }
+
+    function loadStudentRows() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function addStudentData() {
+      const formError = document.getElementById("formError");
+      formError.textContent = "";
+
+      const group = document.getElementById("groupInput").value;
+      const independentVariable = document.getElementById("independentVariableInput").value;
+      const surface = document.getElementById("surfaceInput").value;
+      const concentration = toNumber(document.getElementById("concInput").value, NaN);
+      const temperature = toNumber(document.getElementById("tempInput").value, NaN);
+      const time = toNumber(document.getElementById("timeInput").value, NaN);
+
+      if (!Number.isFinite(concentration) || concentration <= 0) {
+        formError.textContent = "Please enter a valid positive HCl concentration.";
+        return;
+      }
+
+      if (!Number.isFinite(temperature)) {
+        formError.textContent = "Please enter a valid temperature.";
+        return;
+      }
+
+      if (!Number.isFinite(time) || time <= 0) {
+        formError.textContent = "Please enter a valid positive time in seconds. 0 s is not accepted because the rate would be undefined.";
+        return;
+      }
+
+      studentRows.push({
+        source: "Student",
+        group,
+        independentVariable,
+        test: independentVariable,
+        surface,
+        concentration,
+        temperature,
+        time,
+        trial: studentRows.length + 1,
+      });
+
+      saveStudentRows();
+      document.getElementById("timeInput").value = "";
+
+      renderAll();
+    }
+
+    function clearStudentData() {
+      studentRows = [];
+      localStorage.removeItem(STORAGE_KEY);
+      renderAll();
+    }
+
+    function deleteStudentRow(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= studentRows.length) return;
+
+      studentRows.splice(index, 1);
+      studentRows = studentRows.map((item, i) => ({ ...item, trial: i + 1 }));
+      saveStudentRows();
+      renderAll();
+    }
+
+    // Make these functions available to inline table buttons in all browsers.
+    window.deleteStudentRow = deleteStudentRow;
+    window.clearStudentData = clearStudentData;
+
+    function renderStudentTable() {
+      const tbody = document.getElementById("studentTableBody");
+
+      if (studentRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9">No student data added yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = studentRows.map((row, index) => `
+        <tr>
+          <td>${escapeHtml(row.source)}</td>
+          <td>${escapeHtml(row.group || "—")}</td>
+          <td>${escapeHtml(row.independentVariable || row.test)}</td>
+          <td>${escapeHtml(row.surface)}</td>
+          <td>${row.concentration}</td>
+          <td>${row.temperature}</td>
+          <td>${row.time}</td>
+          <td>${formatRate(rateFromTime(row.time), 2)}</td>
+          <td><button class="secondary-btn small-btn" onclick="window.deleteStudentRow(${index})">Delete</button></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderSummaryTable() {
+      const tbody = document.getElementById("summaryTableBody");
+      const summary = buildSummary(getAllRows());
+
+      tbody.innerHTML = summary.map(row => `
+        <tr>
+          <td>${escapeHtml(row.source)}</td>
+          <td>${escapeHtml(row.independentVariable || row.test)}</td>
+          <td>${escapeHtml(row.surface)}</td>
+          <td>${row.concentration}</td>
+          <td>${row.temperature}</td>
+          <td>${row.repeats}</td>
+          <td>${round(row.averageTime, 2)}</td>
+          <td>${round(row.sdTime, 2)}</td>
+          <td><strong>${formatRate(row.rate, 2)}</strong></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderPrediction() {
+      const model = buildModel();
+
+      document.getElementById("predictedRate").textContent = model.predictedRate > 0 ? round(model.predictedRate, 2) : "—";
+      document.getElementById("predictedTime").textContent = formatTime(model.predictedTime, 1);
+      document.getElementById("reliabilityLabel").textContent = model.reliability;
+
+      const statusBox = document.getElementById("statusBox");
+      statusBox.className = "muted-card";
+
+      const modelInfo = model.trainedModel && model.trainedModel.trained
+        ? `<p style="margin:8px 0 0; font-size:13px;">Model trained with ${model.trainedModel.dataCount} combined condition(s). Model fit R² = ${round(model.trainedModel.rSquared, 2)}.</p>`
+        : `<p style="margin:8px 0 0; font-size:13px;">The model is not ready. Add more valid data.</p>`;
+
+      if (model.unsafe) {
+        statusBox.classList.add("note-red");
+        statusBox.innerHTML = `
+          <strong>⚠ Unsafe / unrealistic for school lab</strong>
+          <p style="margin:6px 0 0;">Very high temperature or concentrated acid may cause serious safety risks. Treat this as mathematical extrapolation only.</p>
+          ${modelInfo}
+        `;
+      } else if (model.extreme) {
+        statusBox.classList.add("note-amber");
+        statusBox.innerHTML = `
+          <strong>⚠ Extrapolation warning</strong>
+          <p style="margin:6px 0 0;">The prediction is beyond most measured data. A faster reaction does not always mean a better practical choice.</p>
+          ${modelInfo}
+        `;
+      } else if (model.reliability === "Not ready") {
+        statusBox.classList.add("note-amber");
+        statusBox.innerHTML = `
+          <strong>Model not ready</strong>
+          <p style="margin:6px 0 0;">More valid experimental data are needed before the model can make predictions.</p>
+          ${modelInfo}
+        `;
+      } else {
+        statusBox.classList.add("note-green");
+        statusBox.innerHTML = `
+          <strong>More suitable for school discussion</strong>
+          <p style="margin:6px 0 0;">This condition is closer to the measured data range, so the prediction is more reliable.</p>
+          ${modelInfo}
+        `;
+      }
+    }
+
+    function buildGraphDataFromEntries(variableName, xKey) {
+      const rows = getAllRows().filter(row => {
+        const selectedVariable = row.independentVariable || row.test;
+        return selectedVariable === variableName &&
+          Number.isFinite(Number(row[xKey])) &&
+          Number(row.time) > 0;
+      });
+
+      const grouped = groupBy(rows, row => String(row[xKey]));
+
+      return Object.entries(grouped).map(([label, groupedRows]) => {
+        const times = groupedRows
+          .map(row => toNumber(row.time))
+          .filter(time => time > 0);
+
+        const averageTime = mean(times);
+
+        return {
+          label,
+          x: toNumber(label),
+          y: averageTime > 0 ? rateFromTime(averageTime) : null
+        };
+      }).filter(row =>
+        row.y !== null &&
+        Number.isFinite(Number(row.y))
+      ).sort((a, b) => Number(a.x) - Number(b.x));
+    }
+
+    function buildSurfaceGraphDataFromEntries() {
+      const rows = getAllRows().filter(row => {
+        const selectedVariable = row.independentVariable || row.test;
+        return selectedVariable === "Surface area" &&
+          Number(row.time) > 0 &&
+          (row.surface === "Powder" || row.surface === "Granules");
+      });
+
+      const grouped = groupBy(rows, row => row.surface);
+      const order = { "Granules": 1, "Powder": 2 };
+
+      return Object.entries(grouped).map(([surface, groupedRows]) => {
+        const times = groupedRows
+          .map(row => toNumber(row.time))
+          .filter(time => time > 0);
+
+        const averageTime = mean(times);
+
+        return {
+          label: surface,
+          x: surface,
+          y: averageTime > 0 ? rateFromTime(averageTime) : null
+        };
+      }).filter(row =>
+        row.y !== null &&
+        Number.isFinite(Number(row.y))
+      ).sort((a, b) => (order[a.label] || 99) - (order[b.label] || 99));
+    }
+
+    function renderCharts() {
+      const tempData = buildGraphDataFromEntries("Temperature", "temperature");
+      const concData = buildGraphDataFromEntries("Concentration", "concentration");
+      const surfaceData = buildSurfaceGraphDataFromEntries();
+
+      drawLineChart("tempChart", tempData, "Temperature / °C", "Rate / cm³ s⁻¹");
+      drawLineChart("concChart", concData, "HCl concentration / mol dm⁻³", "Rate / cm³ s⁻¹");
+      drawBarChart("surfaceChart", surfaceData, "Surface area form", "Rate / cm³ s⁻¹");
+    }
+
+    function drawLineChart(containerId, data, xLabel, yLabel) {
+      const container = document.getElementById(containerId);
+      const width = Math.max(container.clientWidth, 320);
+      const height = 300;
+      const margin = { top: 20, right: 20, bottom: 55, left: 65 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+
+      data = data.filter(d => Number.isFinite(Number(d.x)) && d.y !== null && Number.isFinite(Number(d.y)));
+
+      if (!data.length) {
+        container.innerHTML = "<p>No valid data available.</p>";
+        return;
+      }
+
+      const minX = Math.min(...data.map(d => Number(d.x)));
+      const maxX = Math.max(...data.map(d => Number(d.x)));
+      const maxY = Math.max(...data.map(d => Number(d.y)), 1);
+      const yMax = maxY * 1.15;
+
+      const xScale = x => {
+        if (maxX === minX) return margin.left + plotW / 2;
+        return margin.left + ((x - minX) / (maxX - minX)) * plotW;
+      };
+
+      const yScale = y => margin.top + plotH - (y / yMax) * plotH;
+
+      const points = data.map(d => `${xScale(Number(d.x))},${yScale(Number(d.y))}`).join(" ");
+      const dots = data.map(d => `
+        <circle class="dot" cx="${xScale(Number(d.x))}" cy="${yScale(Number(d.y))}" r="4">
+          <title>${xLabel}: ${d.x}; ${yLabel}: ${round(d.y, 2)}</title>
+        </circle>
+      `).join("");
+
+      const xTicks = data.map(d => `
+        <text class="tick-label" x="${xScale(Number(d.x))}" y="${height - 35}" text-anchor="middle">${d.label}</text>
+      `).join("");
+
+      const yTicks = [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax].map(v => {
+        const y = yScale(v);
+        return `
+          <line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="#e2e8f0" />
+          <text class="tick-label" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${round(v, 1)}</text>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${xLabel} against ${yLabel}">
+          ${yTicks}
+          <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#94a3b8" />
+          <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#94a3b8" />
+          <polyline class="line-path" points="${points}" />
+          ${dots}
+          ${xTicks}
+          <text class="axis-label" x="${margin.left + plotW / 2}" y="${height - 8}" text-anchor="middle">${xLabel}</text>
+          <text class="axis-label" x="16" y="${margin.top + plotH / 2}" text-anchor="middle" transform="rotate(-90 16 ${margin.top + plotH / 2})">${yLabel}</text>
+        </svg>
+      `;
+    }
+
+    function drawBarChart(containerId, data, xLabel, yLabel) {
+      const container = document.getElementById(containerId);
+      const width = Math.max(container.clientWidth, 320);
+      const height = 300;
+      const margin = { top: 20, right: 20, bottom: 55, left: 65 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+
+      data = data.filter(d => d.y !== null && Number.isFinite(Number(d.y)));
+
+      if (!data.length) {
+        container.innerHTML = "<p>No valid data available.</p>";
+        return;
+      }
+
+      const maxY = Math.max(...data.map(d => Number(d.y)), 1);
+      const yMax = maxY * 1.15;
+      const barW = plotW / data.length * 0.55;
+
+      const yScale = y => margin.top + plotH - (y / yMax) * plotH;
+
+      const yTicks = [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax].map(v => {
+        const y = yScale(v);
+        return `
+          <line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="#e2e8f0" />
+          <text class="tick-label" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${round(v, 1)}</text>
+        `;
+      }).join("");
+
+      const bars = data.map((d, i) => {
+        const centerX = margin.left + (i + 0.5) * (plotW / data.length);
+        const barH = plotH - (yScale(Number(d.y)) - margin.top);
+        const x = centerX - barW / 2;
+        const y = yScale(Number(d.y));
+        return `
+          <rect class="bar" x="${x}" y="${y}" width="${barW}" height="${barH}" rx="8">
+            <title>${d.label}: ${round(d.y, 2)} ${yLabel}</title>
+          </rect>
+          <text class="tick-label" x="${centerX}" y="${height - 35}" text-anchor="middle">${escapeHtml(d.label)}</text>
+          <text class="tick-label" x="${centerX}" y="${y - 6}" text-anchor="middle">${round(d.y, 2)}</text>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${xLabel} against ${yLabel}">
+          ${yTicks}
+          <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#94a3b8" />
+          <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#94a3b8" />
+          ${bars}
+          <text class="axis-label" x="${margin.left + plotW / 2}" y="${height - 8}" text-anchor="middle">${xLabel}</text>
+          <text class="axis-label" x="16" y="${margin.top + plotH / 2}" text-anchor="middle" transform="rotate(-90 16 ${margin.top + plotH / 2})">${yLabel}</text>
+        </svg>
+      `;
+    }
+
+    function renderAll() {
+      renderStudentTable();
+      renderSummaryTable();
+      renderPrediction();
+      renderCharts();
+    }
+
+    function updatePredictionSliderLabels() {
+      const temp = toNumber(document.getElementById("predictionTempInput").value, 25);
+      const conc = toNumber(document.getElementById("predictionConcInput").value, 0.5);
+
+      document.getElementById("predictionTempLabel").textContent = `${temp}°C`;
+      document.getElementById("predictionConcLabel").textContent = `${round(conc, 1)} M`;
+    }
+
+    function updateMode() {
+      const mode = document.getElementById("modeInput").value;
+      const tempInput = document.getElementById("predictionTempInput");
+      const concInput = document.getElementById("predictionConcInput");
+
+      if (mode === "school") {
+        tempInput.max = 60;
+        tempInput.step = 1;
+        concInput.max = 2;
+        if (toNumber(tempInput.value) > 60) tempInput.value = 60;
+        if (toNumber(concInput.value) > 2) concInput.value = 2;
+        document.getElementById("maxTempLabel").textContent = "60°C";
+        document.getElementById("maxConcLabel").textContent = "2 M";
+      } else {
+        tempInput.max = 500;
+        tempInput.step = 5;
+        concInput.max = 12;
+        document.getElementById("maxTempLabel").textContent = "500°C";
+        document.getElementById("maxConcLabel").textContent = "12 M";
+      }
+
+      updatePredictionSliderLabels();
+      renderPrediction();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.add("hidden"));
+      document.querySelectorAll(".tab-btn").forEach(button => button.classList.remove("active"));
+
+      document.getElementById(`tab-${tabId}`).classList.remove("hidden");
+      document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add("active");
+
+      if (tabId === "charts") renderCharts();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function applyIndependentVariableDefaults() {
+      const iv = document.getElementById("independentVariableInput").value;
+      const surfaceInput = document.getElementById("surfaceInput");
+      const concInput = document.getElementById("concInput");
+      const tempInput = document.getElementById("tempInput");
+
+      if (iv === "Surface area") {
+        concInput.value = "0.5";
+        tempInput.value = "25";
+      }
+
+      if (iv === "Temperature") {
+        surfaceInput.value = "Powder";
+        concInput.value = "0.5";
+      }
+
+      if (iv === "Concentration") {
+        surfaceInput.value = "Powder";
+        tempInput.value = "25";
+      }
+    }
+
+    document.querySelectorAll(".tab-btn").forEach(button => {
+      button.addEventListener("click", () => switchTab(button.dataset.tab));
+    });
+
+    document.getElementById("addStudentDataBtn").addEventListener("click", addStudentData);
+    document.getElementById("clearStudentDataBtn").addEventListener("click", () => window.clearStudentData());
+    document.getElementById("modeInput").addEventListener("change", updateMode);
+    document.getElementById("independentVariableInput").addEventListener("change", applyIndependentVariableDefaults);
+
+    ["predictionTempInput", "predictionConcInput", "predictionSurfaceInput"].forEach(id => {
+      document.getElementById(id).addEventListener("input", () => {
+        updatePredictionSliderLabels();
+        renderPrediction();
+      });
+      document.getElementById(id).addEventListener("change", () => {
+        updatePredictionSliderLabels();
+        renderPrediction();
+      });
+    });
+
+    window.addEventListener("resize", () => {
+      renderCharts();
+    });
+
+    updatePredictionSliderLabels();
+    renderAll();
+  </script>
+</body>
+</html>
