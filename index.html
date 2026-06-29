@@ -176,6 +176,13 @@
       color: var(--text);
     }
 
+    .small-btn {
+      padding: 8px 10px;
+      font-size: 13px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+
     .top-row {
       display: flex;
       justify-content: space-between;
@@ -441,10 +448,11 @@
               <th>Temp / °C</th>
               <th>Time / s</th>
               <th>Rate / cm³ s⁻¹</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="studentTableBody">
-            <tr><td colspan="8">No student data added yet.</td></tr>
+            <tr><td colspan="9">No student data added yet.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1032,21 +1040,33 @@
     }
 
     function clearStudentData() {
-      if (!confirm("Clear all student data stored in this browser?")) return;
       studentRows = [];
+      localStorage.removeItem(STORAGE_KEY);
+      renderAll();
+    }
+
+    function deleteStudentRow(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= studentRows.length) return;
+
+      studentRows.splice(index, 1);
+      studentRows = studentRows.map((item, i) => ({ ...item, trial: i + 1 }));
       saveStudentRows();
       renderAll();
     }
+
+    // Make these functions available to inline table buttons in all browsers.
+    window.deleteStudentRow = deleteStudentRow;
+    window.clearStudentData = clearStudentData;
 
     function renderStudentTable() {
       const tbody = document.getElementById("studentTableBody");
 
       if (studentRows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8">No student data added yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9">No student data added yet.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = studentRows.map(row => `
+      tbody.innerHTML = studentRows.map((row, index) => `
         <tr>
           <td>${escapeHtml(row.source)}</td>
           <td>${escapeHtml(row.group || "—")}</td>
@@ -1056,6 +1076,7 @@
           <td>${row.temperature}</td>
           <td>${row.time}</td>
           <td>${formatRate(rateFromTime(row.time), 2)}</td>
+          <td><button class="secondary-btn small-btn" onclick="window.deleteStudentRow(${index})">Delete</button></td>
         </tr>
       `).join("");
     }
@@ -1124,22 +1145,67 @@
       }
     }
 
+    function buildGraphDataFromEntries(variableName, xKey) {
+      const rows = getAllRows().filter(row => {
+        const selectedVariable = row.independentVariable || row.test;
+        return selectedVariable === variableName &&
+          Number.isFinite(Number(row[xKey])) &&
+          Number(row.time) > 0;
+      });
+
+      const grouped = groupBy(rows, row => String(row[xKey]));
+
+      return Object.entries(grouped).map(([label, groupedRows]) => {
+        const times = groupedRows
+          .map(row => toNumber(row.time))
+          .filter(time => time > 0);
+
+        const averageTime = mean(times);
+
+        return {
+          label,
+          x: toNumber(label),
+          y: averageTime > 0 ? rateFromTime(averageTime) : null
+        };
+      }).filter(row =>
+        row.y !== null &&
+        Number.isFinite(Number(row.y))
+      ).sort((a, b) => Number(a.x) - Number(b.x));
+    }
+
+    function buildSurfaceGraphDataFromEntries() {
+      const rows = getAllRows().filter(row => {
+        const selectedVariable = row.independentVariable || row.test;
+        return selectedVariable === "Surface area" &&
+          Number(row.time) > 0 &&
+          (row.surface === "Powder" || row.surface === "Granules");
+      });
+
+      const grouped = groupBy(rows, row => row.surface);
+      const order = { "Granules": 1, "Powder": 2 };
+
+      return Object.entries(grouped).map(([surface, groupedRows]) => {
+        const times = groupedRows
+          .map(row => toNumber(row.time))
+          .filter(time => time > 0);
+
+        const averageTime = mean(times);
+
+        return {
+          label: surface,
+          x: surface,
+          y: averageTime > 0 ? rateFromTime(averageTime) : null
+        };
+      }).filter(row =>
+        row.y !== null &&
+        Number.isFinite(Number(row.y))
+      ).sort((a, b) => (order[a.label] || 99) - (order[b.label] || 99));
+    }
+
     function renderCharts() {
-      const summary = buildSummary(getAllRows());
-
-      const tempData = summary
-        .filter(row => row.test === "Temperature" && row.surface === "Powder" && row.concentration === 0.5 && row.rate !== null)
-        .map(row => ({ label: row.temperature, x: row.temperature, y: row.rate }))
-        .sort((a, b) => a.x - b.x);
-
-      const concData = summary
-        .filter(row => row.test === "Concentration" && row.surface === "Powder" && row.temperature === 25 && row.rate !== null)
-        .map(row => ({ label: row.concentration, x: row.concentration, y: row.rate }))
-        .sort((a, b) => a.x - b.x);
-
-      const surfaceData = summary
-        .filter(row => row.test === "Surface area" && row.concentration === 0.5 && row.temperature === 25 && row.rate !== null)
-        .map(row => ({ label: row.surface, x: row.surface, y: row.rate }));
+      const tempData = buildGraphDataFromEntries("Temperature", "temperature");
+      const concData = buildGraphDataFromEntries("Concentration", "concentration");
+      const surfaceData = buildSurfaceGraphDataFromEntries();
 
       drawLineChart("tempChart", tempData, "Temperature / °C", "Rate / cm³ s⁻¹");
       drawLineChart("concChart", concData, "HCl concentration / mol dm⁻³", "Rate / cm³ s⁻¹");
@@ -1320,13 +1386,36 @@
         .replaceAll("'", "&#039;");
     }
 
+    function applyIndependentVariableDefaults() {
+      const iv = document.getElementById("independentVariableInput").value;
+      const surfaceInput = document.getElementById("surfaceInput");
+      const concInput = document.getElementById("concInput");
+      const tempInput = document.getElementById("tempInput");
+
+      if (iv === "Surface area") {
+        concInput.value = "0.5";
+        tempInput.value = "25";
+      }
+
+      if (iv === "Temperature") {
+        surfaceInput.value = "Powder";
+        concInput.value = "0.5";
+      }
+
+      if (iv === "Concentration") {
+        surfaceInput.value = "Powder";
+        tempInput.value = "25";
+      }
+    }
+
     document.querySelectorAll(".tab-btn").forEach(button => {
       button.addEventListener("click", () => switchTab(button.dataset.tab));
     });
 
     document.getElementById("addStudentDataBtn").addEventListener("click", addStudentData);
-    document.getElementById("clearStudentDataBtn").addEventListener("click", clearStudentData);
+    document.getElementById("clearStudentDataBtn").addEventListener("click", () => window.clearStudentData());
     document.getElementById("modeInput").addEventListener("change", updateMode);
+    document.getElementById("independentVariableInput").addEventListener("change", applyIndependentVariableDefaults);
 
     ["predictionTempInput", "predictionConcInput", "predictionSurfaceInput"].forEach(id => {
       document.getElementById(id).addEventListener("input", () => {
